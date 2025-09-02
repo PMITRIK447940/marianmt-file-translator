@@ -1,6 +1,6 @@
 import subprocess
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Callable, Optional
 
 from langdetect import detect
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
@@ -19,34 +19,39 @@ def _load_model(src: str, tgt: str):
     _MODEL_CACHE[key] = (tokenizer, model)
     return tokenizer, model
 
-def _translate_blocks(blocks: List[str], src: str, tgt: str, max_chars: int = 6000) -> List[str]:
+def _split_text(text: str) -> List[str]:
+    return [p.strip() for p in text.replace('\r\n', '\n').split('\n\n') if p.strip()]
+
+def _translate_blocks(blocks: List[str], src: str, tgt: str, hook: Optional[Callable[[int,int],None]]=None) -> List[str]:
     tokenizer, model = _load_model(src, tgt)
     out: List[str] = []
     batch: List[str] = []
-    total = 0
+    total = len(blocks)
+    done = 0
     def flush():
-        nonlocal batch, out, total
+        nonlocal batch, out, done
         if not batch:
             return
         inputs = tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
         tokens = model.generate(**inputs, max_length=2048)
         out.extend(tokenizer.batch_decode(tokens, skip_special_tokens=True))
-        batch = []
-        total = 0
+        done += len(batch)
+        if hook:
+            hook(done, total)
+        batch.clear()
+    max_chars = 6000
+    cur = 0
     for b in blocks:
-        L = len(b)
-        if total + L > max_chars:
+        bl = len(b)
+        if cur + bl > max_chars:
             flush()
+            cur = 0
         batch.append(b)
-        total += L
+        cur += bl
     flush()
     return out
 
-def _split_text(text: str) -> List[str]:
-    paras = [p.strip() for p in text.replace('\r\n', '\n').split('\n\n')]
-    return [p for p in paras if p]
-
-def translate_text(text: str, target_lang: str) -> Tuple[str, str]:
+def translate_text_with_progress(text: str, target_lang: str, progress_hook: Optional[Callable[[int,int],None]]=None) -> Tuple[str, str]:
     if not text.strip():
         return '', 'unknown'
     try:
@@ -56,20 +61,19 @@ def translate_text(text: str, target_lang: str) -> Tuple[str, str]:
     tgt = target_lang.lower()
     if src == tgt:
         return text, src
+    blocks = _split_text(text)
     try:
-        blocks = _split_text(text)
-        out = _translate_blocks(blocks, src, tgt)
+        out = _translate_blocks(blocks, src, tgt, hook=progress_hook)
         return '\n\n'.join(out), src
     except Exception:
         pass
     if src != 'en' and tgt != 'en':
-        blocks = _split_text(text)
-        mid = _translate_blocks(blocks, src, 'en')
-        out = _translate_blocks(mid, 'en', tgt)
+        mid = _translate_blocks(blocks, src, 'en', hook=None)
+        out = _translate_blocks(mid, 'en', tgt, hook=progress_hook)
         return '\n\n'.join(out), src
     raise RuntimeError(f'No model available for {src}->{tgt}')
 
-def translate_document(src_path: Path, target_lang: str) -> Path:
+def translate_document_with_progress(src_path: Path, target_lang: str, progress_hook: Optional[Callable[[int,int],None]]=None) -> Path:
     suffix = src_path.suffix.lower()
     path_to_read = src_path
     if suffix == '.doc':
@@ -79,10 +83,8 @@ def translate_document(src_path: Path, target_lang: str) -> Path:
             err = res.stderr.decode('utf-8', 'ignore')
             raise RuntimeError(f".doc conversion failed: {err}")
         path_to_read = src_path.with_suffix('.docx')
-
     text = read_text_from_any(path_to_read)
-    translated, _ = translate_text(text, target_lang=target_lang)
-
+    translated, _ = translate_text_with_progress(text, target_lang=target_lang, progress_hook=progress_hook)
     out_dir = src_path.parent
     if suffix == '.txt':
         out_path = out_dir / f'{src_path.stem}_translated_{target_lang}.txt'

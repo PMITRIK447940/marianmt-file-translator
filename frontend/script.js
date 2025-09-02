@@ -5,10 +5,6 @@ async function loadLanguages() {
     const resp = await fetch('/api/languages');
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const langs = await resp.json();
-    if (!Array.isArray(langs) || langs.length === 0) {
-      info.textContent = 'No languages returned from API.';
-      return;
-    }
     langs.forEach(({ code, name }) => {
       const opt = document.createElement('option');
       opt.value = code;
@@ -22,27 +18,92 @@ async function loadLanguages() {
     console.error('loadLanguages error:', e);
   }
 }
+
+function show(el){ el.classList.remove('hidden'); }
+function hide(el){ el.classList.add('hidden'); }
+
+function setBar(bar, pctEl, val){
+  const pct = Math.max(0, Math.min(100, Math.round(val)));
+  bar.style.width = pct + '%';
+  pctEl.textContent = pct + '%';
+}
+
 async function submitForm(e){
   e.preventDefault();
+
+  const progressArea = document.getElementById('progressArea');
+  const uploadBar = document.getElementById('uploadBar');
+  const uploadPct = document.getElementById('uploadPct');
+  const transBar = document.getElementById('transBar');
+  const transPct = document.getElementById('transPct');
   const status = document.getElementById('status');
-  status.textContent = 'Uploading & translating (≤15 MB)...';
-  const fd = new FormData(document.getElementById('tform'));
-  const resp = await fetch('/api/translate',{method:'POST', body:fd});
-  if(!resp.ok){
-    let msg = resp.statusText;
-    try { const j = await resp.json(); if(j.detail) msg = j.detail; } catch(e){}
-    status.textContent = 'Error: ' + msg;
+  const downloadArea = document.getElementById('downloadArea');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  show(progressArea);
+  hide(downloadArea);
+  setBar(uploadBar, uploadPct, 0);
+  setBar(transBar, transPct, 0);
+  status.textContent = 'Starting upload...';
+
+  const form = document.getElementById('tform');
+  const fd = new FormData(form);
+
+  const xhr = new XMLHttpRequest();
+  const uploadPromise = new Promise((resolve, reject) => {
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const pct = (e.loaded / e.total) * 100;
+        setBar(uploadBar, uploadPct, pct);
+        status.textContent = 'Uploading...';
+      }
+    });
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
+      else reject(new Error('Upload failed: HTTP ' + xhr.status + ' ' + xhr.responseText));
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+    xhr.open('POST', '/api/upload');
+    xhr.send(fd);
+  });
+
+  let job;
+  try {
+    const txt = await uploadPromise;
+    job = JSON.parse(txt);
+    setBar(uploadBar, uploadPct, 100);
+    status.textContent = 'Upload complete. Translating...';
+  } catch (err) {
+    status.textContent = err.message || String(err);
     return;
   }
-  const blob = await resp.blob();
-  const cd = resp.headers.get('Content-Disposition') || '';
-  let filename = 'translated';
-  const m = cd.match(/filename="?([^\"]+)"?/i);
-  if(m) filename = m[1];
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-  status.textContent = 'Done!';
+
+  const jobId = job.job_id;
+  const poll = async () => {
+    const r = await fetch('/api/status/' + jobId);
+    if (!r.ok) throw new Error('Status HTTP ' + r.status);
+    const s = await r.json();
+    setBar(transBar, transPct, s.progress || 0);
+    if (s.phase === 'error') {
+      throw new Error(s.error || 'Translation failed');
+    }
+    if (s.done) return true;
+    return false;
+  };
+
+  try {
+    let done = false;
+    while (!done) {
+      done = await poll();
+      await new Promise(res => setTimeout(res, 1000));
+    }
+    status.textContent = 'Translation complete!';
+    show(downloadArea);
+    downloadBtn.href = '/api/download/' + jobId;
+  } catch (e) {
+    status.textContent = e.message || String(e);
+  }
 }
+
 document.getElementById('tform').addEventListener('submit', submitForm);
 window.addEventListener('DOMContentLoaded', loadLanguages);

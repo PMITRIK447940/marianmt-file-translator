@@ -43,7 +43,7 @@ def _translate_blocks(blocks: List[str], src: str, tgt: str, max_chars: int = 60
     return out
 
 def _split_text(text: str) -> List[str]:
-    paras = [p.strip() for p in text.replace('\\r\\n', '\\n').split('\\n\\n')]
+    paras = [p.strip() for p in text.replace('\r\n', '\n').split('\n\n')]
     return [p for p in paras if p]
 
 def translate_text(text: str, target_lang: str) -> Tuple[str, str]:
@@ -59,14 +59,14 @@ def translate_text(text: str, target_lang: str) -> Tuple[str, str]:
     try:
         blocks = _split_text(text)
         out = _translate_blocks(blocks, src, tgt)
-        return '\\n\\n'.join(out), src
+        return '\n\n'.join(out), src
     except Exception:
         pass
     if src != 'en' and tgt != 'en':
         blocks = _split_text(text)
         mid = _translate_blocks(blocks, src, 'en')
         out = _translate_blocks(mid, 'en', tgt)
-        return '\\n\\n'.join(out), src
+        return '\n\n'.join(out), src
     raise RuntimeError(f'No model available for {src}->{tgt}')
 
 def translate_document(src_path: Path, target_lang: str) -> Path:
@@ -76,7 +76,6 @@ def translate_document(src_path: Path, target_lang: str) -> Path:
         tmp_dir = src_path.parent
         res = subprocess.run(['soffice', '--headless', '--convert-to', 'docx', str(src_path), '--outdir', str(tmp_dir)], capture_output=True)
         if res.returncode != 0:
-            # >>> FIXED f-string (no backslashes in expression) <<<
             err = res.stderr.decode('utf-8', 'ignore')
             raise RuntimeError(f".doc conversion failed: {err}")
         path_to_read = src_path.with_suffix('.docx')

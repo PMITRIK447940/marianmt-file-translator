@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MarianMT File Translator v2.2 (15MB, Railway)</title>
-    <script defer src="script.js"></script>
-    <link rel="stylesheet" href="styles.css" />
+    <title>MarianMT File Translator v2.3 (15MB, Railway)</title>
+    <script defer src="/static/script.js"></script>
+    <link rel="stylesheet" href="/static/styles.css" />
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="min-h-screen bg-gray-50 text-gray-900">
     <div class="max-w-3xl mx-auto p-6">
-      <h1 class="text-3xl font-bold mb-2">File Translator v2.2 (MarianMT)</h1>
+      <h1 class="text-3xl font-bold mb-2">File Translator v2.3 (MarianMT)</h1>
       <p class="text-sm text-gray-600 mb-8">Max upload: <strong>15 MB</strong>. Supported: .pdf, .doc, .docx, .rtf, .txt.</p>
 
       <form id="tform" class="bg-white rounded-2xl shadow p-6 space-y-4">
@@ -22,6 +22,7 @@
         <div>
           <label class="block text-sm font-medium mb-1">Target language</label>
           <select id="target_lang" name="target_lang" class="w-full border rounded-lg p-3" required></select>
+          <p class="text-xs text-gray-500 mt-1" id="langStatus"></p>
         </div>
 
         <button id="go" class="px-5 py-3 rounded-xl bg-black text-white">Translate</button>

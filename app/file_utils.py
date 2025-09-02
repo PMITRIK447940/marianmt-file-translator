@@ -9,7 +9,7 @@ def read_text_from_any(path: Union[str, Path]) -> str:
     elif suffix == '.docx':
         from docx import Document
         doc = Document(str(path))
-        return '\\n\\n'.join(p.text for p in doc.paragraphs)
+        return '\n\n'.join(p.text for p in doc.paragraphs)
     elif suffix == '.pdf':
         from pdfminer.high_level import extract_text
         return extract_text(str(path)) or ''
@@ -25,6 +25,6 @@ def read_text_from_any(path: Union[str, Path]) -> str:
 def write_text_to_docx(text: str, out_path: Union[str, Path]) -> None:
     from docx import Document
     doc = Document()
-    for para in text.split('\\n\\n'):
+    for para in text.split('\n\n'):
         doc.add_paragraph(para)
     doc.save(str(out_path))

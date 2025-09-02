@@ -25,9 +25,8 @@ class LimitUploadSizeMiddleware(BaseHTTPMiddleware):
             pass
         return await call_next(request)
 
-app = FastAPI(title="MarianMT File Translator v2.2 (15MB, Railway PORT)")
+app = FastAPI(title="MarianMT File Translator v2.3 (15MB, Railway PORT)")
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,13 +34,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Upload size limiter
 app.add_middleware(LimitUploadSizeMiddleware)
 
-# Frontend
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-if FRONTEND_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
+
+@app.get("/")
+def index():
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR), html=False), name="static")
 
 @app.get("/health")
 def health():
@@ -52,10 +53,7 @@ def get_languages():
     return [{"code": code, "name": name} for name, code in SUPPORTED_LANGS.items()]
 
 @app.post("/api/translate")
-async def translate_api(
-    file: UploadFile = File(...),
-    target_lang: str = Form(...),
-):
+async def translate_api(file: UploadFile = File(...), target_lang: str = Form(...)):
     if not target_lang:
         raise HTTPException(status_code=400, detail="Missing target_lang")
 
@@ -64,7 +62,6 @@ async def translate_api(
     if suffix not in valid_exts:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
 
-    # Save stream to disk with secondary size enforcement
     tmpdir = Path("/tmp")
     tmpdir.mkdir(parents=True, exist_ok=True)
     src_path = tmpdir / f"upload_{os.getpid()}_{file.filename}"

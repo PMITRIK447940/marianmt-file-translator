@@ -8,5 +8,4 @@ COPY app /app/app
 COPY frontend /app/frontend
 ENV TOKENIZERS_PARALLELISM=false
 EXPOSE 8000
-# >>> Railway PORT-aware CMD <<<
 CMD ["bash", "-lc", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info"]

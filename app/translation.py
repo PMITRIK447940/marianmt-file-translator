@@ -76,7 +76,9 @@ def translate_document(src_path: Path, target_lang: str) -> Path:
         tmp_dir = src_path.parent
         res = subprocess.run(['soffice', '--headless', '--convert-to', 'docx', str(src_path), '--outdir', str(tmp_dir)], capture_output=True)
         if res.returncode != 0:
-            raise RuntimeError(f'.doc conversion failed: {res.stderr.decode(\"utf-8\", \"ignore\")}')
+            # >>> FIXED f-string (no backslashes in expression) <<<
+            err = res.stderr.decode('utf-8', 'ignore')
+            raise RuntimeError(f".doc conversion failed: {err}")
         path_to_read = src_path.with_suffix('.docx')
 
     text = read_text_from_any(path_to_read)

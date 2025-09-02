@@ -25,7 +25,7 @@ class LimitUploadSizeMiddleware(BaseHTTPMiddleware):
             pass
         return await call_next(request)
 
-app = FastAPI(title="MarianMT File Translator v2.1 (15MB)")
+app = FastAPI(title="MarianMT File Translator v2.2 (15MB, Railway PORT)")
 
 # CORS
 app.add_middleware(

@@ -1,26 +1,20 @@
-# MarianMT File Translator v2.1 — 15 MB limit (FastAPI, Railway-ready)
+# MarianMT File Translator v2.2 — 15 MB limit + Railway PORT fix
 
-- Max upload size: **15 MB** (middleware + server-side stream check).
-- Formats in: **.pdf, .doc, .docx, .rtf, .txt**
-- Outputs: `.txt` (for PDF) or `.docx` (for word-processor files), `.txt` for text files.
-- Uses **Helsinki-NLP/opus-mt** (MarianMT) with pivot cez EN keď chýba priamy model.
+- Fix: f-string v `translation.py` (bez spätných lomítok v expression).
+- Dockerfile spúšťa Uvicorn na `${PORT}` (Railway štandard).
+- 15 MB upload limit cez middleware + stream check.
+- Formáty: .pdf, .doc, .docx, .rtf, .txt. Výstup: `.docx` (word), `.txt` (pdf/txt).
 
-## Local run
-```bash
+## Run locally
 python -m venv .venv
-# Windows: .venv\Scripts\activate
+# Windows: .venv\\Scripts\\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
-# http://127.0.0.1:8000
-```
 
 ## Deploy to Railway (GitHub)
-- Push this folder to GitHub
-- Railway → New Project → Deploy from GitHub
-- It builds the Dockerfile; open the public URL
+- Push to repo → Deploy from GitHub
+- Logs: Deployments → Logs
+- Health: GET /health
 
-## Notes
-- `.doc` is converted via LibreOffice headless to `.docx` internally.
-- PDF layout is not preserved — text extraction only.
-- First-time model use downloads from Hugging Face; cold start can be longer.
+Notes: .doc → .docx cez LibreOffice; PDF je plain text; prvý preklad daného páru stiahne model.
